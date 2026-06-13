@@ -1,73 +1,156 @@
+# =========================
+# AI FITNESS TRAINER STREAMLIT APP
+# (Converted from your agent code)
+# =========================
 
 import streamlit as st
-from transformers import pipeline
+import json
+import os
+from datetime import datetime
+from groq import Groq
 
-# Load Models
+# =========================
+# PAGE CONFIG
+# =========================
+st.set_page_config(page_title="AI Fitness Trainer", page_icon="🏋️")
 
-# BERT-based sentiment model
-senti_model = pipeline(
-    "sentiment-analysis",
-    model="distilbert/distilbert-base-uncased-finetuned-sst-2-english"
-)
+st.title("🏋️ AI Fitness Trainer")
+st.write("Your personal AI gym coach with memory 💪")
 
-# GPT text generation model
-generator = pipeline(
-    "text-generation",
-    model="distilgpt2"
-)
+# =========================
+# API KEY INPUT
+# =========================
+API_KEY = st.sidebar.text_input("Enter Groq API Key", type="password")
 
-# Streamlit UI
+if not API_KEY:
+    st.warning("Please enter your Groq API Key in sidebar to start")
+    st.stop()
 
-st.title("BERT and GPT Models")
-st.write(
-    "This app performs Sentiment Analysis using BERT "
-    "and Text Generation using GPT."
-)
+client = Groq(api_key=API_KEY)
 
-menu = st.sidebar.selectbox(
-    "Choose a model",
-    ["Sentiment Analysis", "Text Generation"]
-)
+# =========================
+# MEMORY FILE
+# =========================
+MEMORY_FILE = "trainer_memory.json"
 
-# Sentiment Analysis
+if os.path.exists(MEMORY_FILE):
+    memory = json.load(open(MEMORY_FILE))
+else:
+    memory = {
+        "profile": {},
+        "chat_history": []
+    }
 
-if menu == "Sentiment Analysis":
+def save_memory():
+    with open(MEMORY_FILE, "w") as f:
+        json.dump(memory, f, indent=4)
 
-    st.header("BERT Sentiment Analysis")
+# =========================
+# MEMORY FUNCTIONS
+# =========================
+def get_context():
+    return json.dumps(memory["profile"], indent=2)
 
-    text = st.text_area("Enter a sentence:")
+def extract_memory(user_input):
+    text = user_input.lower()
 
-    if st.button("Analyze Sentiment"):
+    if "my name is" in text:
+        memory["profile"]["name"] = user_input.split("is")[-1].strip()
 
-        if text.strip() != "":
+    if "my weight is" in text:
+        memory["profile"]["weight"] = user_input.split("is")[-1].strip()
 
-            result = senti_model(text)[0]
+    if "my goal is" in text:
+        memory["profile"]["goal"] = user_input.split("is")[-1].strip()
 
-            st.success(f"Prediction: {result['label']}")
-            st.write(f"Confidence Score: {round(result['score'], 2)}")
+    if "my height is" in text:
+        memory["profile"]["height"] = user_input.split("is")[-1].strip()
 
-        else:
-            st.warning("Please enter some text.")
+    save_memory()
 
-# Text Generation
+# =========================
+# PROMPT BUILDER
+# =========================
+def build_prompt(user_input):
+    return f"""
+You are a WORLD CLASS PERSONAL FITNESS TRAINER.
 
-elif menu == "Text Generation":
+Personality:
+- Friendly
+- Motivational
+- Practical
+- Slightly strict like a real coach
 
-    st.header("GPT Text Generation")
+User Profile:
+{get_context()}
 
-    prompt = st.text_area("Enter a prompt:")
+Rules:
+- Use memory when relevant
+- Give workout, diet, lifestyle advice
+- Ask follow-up questions
+- Keep responses conversational
 
-    if st.button("Generate Text"):
+User message:
+{user_input}
+"""
 
-        if prompt.strip() != "":
+# =========================
+# AGENT FUNCTION
+# =========================
+def agent(user_input):
 
-            output = generator(
-                            prompt, max_new_tokens=60, do_sample=True, temperature=0.7, top_p=0.9,
-                            repetition_penalty=1.2, no_repeat_ngram_size=3
-                            )
+    extract_memory(user_input)
 
+    prompt = build_prompt(user_input)
 
-            st.write(output[0]["generated_text"])
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {"role": "system", "content": "You are a professional fitness coach."},
+            {"role": "user", "content": prompt}
+        ]
+    )
 
-        else:
-            st.warning("Please enter a prompt.")
+    reply = response.choices[0].message.content
+
+    memory["chat_history"].append({
+        "time": str(datetime.now()),
+        "user": user_input,
+        "bot": reply
+    })
+
+    save_memory()
+
+    return reply
+
+# =========================
+# CHAT HISTORY UI
+# =========================
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Show previous chat
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
+
+# =========================
+# USER INPUT
+# =========================
+user_input = st.chat_input("Talk to your fitness coach...")
+
+if user_input:
+
+    # user message
+    st.session_state.messages.append({"role": "user", "content": user_input})
+
+    with st.chat_message("user"):
+        st.write(user_input)
+
+    # agent response
+    reply = agent(user_input)
+
+    st.session_state.messages.append({"role": "assistant", "content": reply})
+
+    with st.chat_message("assistant"):
+        st.write(reply)
