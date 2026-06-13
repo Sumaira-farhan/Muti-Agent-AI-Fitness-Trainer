@@ -1,6 +1,6 @@
 # =========================
 # AI FITNESS TRAINER STREAMLIT APP
-# (Converted from your agent code)
+# Project by Ms. Sumaira Farhan
 # =========================
 
 import streamlit as st
@@ -18,12 +18,17 @@ st.title("🏋️ AI Fitness Trainer")
 st.write("Your personal AI gym coach with memory 💪")
 
 # =========================
-# API KEY INPUT
+# SIDEBAR (API + CREDIT)
 # =========================
+st.sidebar.header("Settings")
+
 API_KEY = st.sidebar.text_input("Enter Groq API Key", type="password")
 
+st.sidebar.markdown("---")
+st.sidebar.markdown("👩‍🏫 **Project by Ms. Sumaira Farhan**")
+
 if not API_KEY:
-    st.warning("Please enter your Groq API Key in sidebar to start")
+    st.warning("Please enter your Groq API Key in the sidebar to start.")
     st.stop()
 
 client = Groq(api_key=API_KEY)
@@ -69,30 +74,35 @@ def extract_memory(user_input):
     save_memory()
 
 # =========================
-# PROMPT BUILDER
+# LLM MODELS (SAFE)
 # =========================
-def build_prompt(user_input):
-    return f"""
-You are a WORLD CLASS PERSONAL FITNESS TRAINER.
+MODELS = [
+    "llama-3.1-70b-versatile",
+    "llama-3.1-8b-instant"
+]
 
-Personality:
-- Friendly
-- Motivational
-- Practical
-- Slightly strict like a real coach
+def call_llm(prompt):
+    for model in MODELS:
+        try:
+            res = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a world-class personal fitness trainer. You are motivating, friendly, and give practical workout and diet advice."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0.7
+            )
+            return res.choices[0].message.content
+        except:
+            continue
 
-User Profile:
-{get_context()}
-
-Rules:
-- Use memory when relevant
-- Give workout, diet, lifestyle advice
-- Ask follow-up questions
-- Keep responses conversational
-
-User message:
-{user_input}
-"""
+    return "⚠️ AI model error. Please try again later."
 
 # =========================
 # AGENT FUNCTION
@@ -101,17 +111,23 @@ def agent(user_input):
 
     extract_memory(user_input)
 
-    prompt = build_prompt(user_input)
+    prompt = f"""
+You are a personal fitness coach.
 
-    response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[
-            {"role": "system", "content": "You are a professional fitness coach."},
-            {"role": "user", "content": prompt}
-        ]
-    )
+User Profile:
+{get_context()}
 
-    reply = response.choices[0].message.content
+User Message:
+{user_input}
+
+Instructions:
+- Be motivating like a real gym trainer
+- Give practical workout and diet advice
+- Use memory when needed
+- Ask follow-up questions when required
+"""
+
+    reply = call_llm(prompt)
 
     memory["chat_history"].append({
         "time": str(datetime.now()),
@@ -124,12 +140,12 @@ def agent(user_input):
     return reply
 
 # =========================
-# CHAT HISTORY UI
+# CHAT UI STATE
 # =========================
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Show previous chat
+# Show chat history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
@@ -147,7 +163,7 @@ if user_input:
     with st.chat_message("user"):
         st.write(user_input)
 
-    # agent response
+    # AI response
     reply = agent(user_input)
 
     st.session_state.messages.append({"role": "assistant", "content": reply})
