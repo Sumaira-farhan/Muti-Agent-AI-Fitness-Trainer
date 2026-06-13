@@ -1,6 +1,6 @@
 # =========================
 # AI FITNESS TRAINER STREAMLIT APP
-# Project by Ms. Sumaira Farhan
+# A Project by Ms. Sumaira Farhan
 # =========================
 
 import streamlit as st
@@ -15,20 +15,26 @@ from groq import Groq
 st.set_page_config(page_title="AI Fitness Trainer", page_icon="🏋️")
 
 st.title("🏋️ AI Fitness Trainer")
+
+st.markdown(
+    "### 👩‍🏫 A Project by Ms. Sumaira Farhan",
+    unsafe_allow_html=True
+)
+
 st.write("Your personal AI gym coach with memory 💪")
 
 # =========================
-# SIDEBAR (API + CREDIT)
+# SIDEBAR
 # =========================
 st.sidebar.header("Settings")
 
 API_KEY = st.sidebar.text_input("Enter Groq API Key", type="password")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("👩‍🏫 **Project by Ms. Sumaira Farhan**")
+st.sidebar.markdown("👩‍🏫 Project by Ms. Sumaira Farhan")
 
 if not API_KEY:
-    st.warning("Please enter your Groq API Key in the sidebar to start.")
+    st.warning("Please enter your Groq API Key to continue.")
     st.stop()
 
 client = Groq(api_key=API_KEY)
@@ -74,7 +80,7 @@ def extract_memory(user_input):
     save_memory()
 
 # =========================
-# LLM MODELS (SAFE)
+# MODELS
 # =========================
 MODELS = [
     "llama-3.1-70b-versatile",
@@ -89,7 +95,7 @@ def call_llm(prompt):
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a world-class personal fitness trainer. You are motivating, friendly, and give practical workout and diet advice."
+                        "content": "You are a world-class personal fitness trainer. Motivating, friendly, and practical."
                     },
                     {
                         "role": "user",
@@ -102,7 +108,7 @@ def call_llm(prompt):
         except:
             continue
 
-    return "⚠️ AI model error. Please try again later."
+    return "⚠️ AI model error. Please try again."
 
 # =========================
 # AGENT FUNCTION
@@ -120,11 +126,11 @@ User Profile:
 User Message:
 {user_input}
 
-Instructions:
-- Be motivating like a real gym trainer
-- Give practical workout and diet advice
+Rules:
+- Be motivating like a real trainer
+- Give workout + diet advice
 - Use memory when needed
-- Ask follow-up questions when required
+- Ask follow-up questions
 """
 
     reply = call_llm(prompt)
@@ -140,30 +146,24 @@ Instructions:
     return reply
 
 # =========================
-# CHAT UI STATE
+# CHAT UI
 # =========================
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Show chat history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
-# =========================
-# USER INPUT
-# =========================
 user_input = st.chat_input("Talk to your fitness coach...")
 
 if user_input:
 
-    # user message
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     with st.chat_message("user"):
         st.write(user_input)
 
-    # AI response
     reply = agent(user_input)
 
     st.session_state.messages.append({"role": "assistant", "content": reply})
